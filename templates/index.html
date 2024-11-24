@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>第XX組摩斯密碼解碼</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+            text-align: center;
+        }
+        header {
+            background-color: #333;
+            color: white;
+            padding: 20px 0;
+        }
+        header h1 {
+            margin: 0;
+            font-size: 2.5em;
+        }
+        .container {
+            margin: 20px auto;
+            max-width: 800px;
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            table-layout: fixed;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ccc;
+            text-align: center;
+        }
+        th {
+            background-color: #333;
+            color: white;
+        }
+        td.code {
+            font-family: "Courier New", monospace;
+        }
+        td.placeholder {
+            color: #888;
+            font-style: italic;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px 0;
+            font-size: 1em;
+            border: none;
+            border-radius: 5px;
+            background-color: #007BFF;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        footer {
+            margin-top: 20px;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>第XX組摩斯密碼解碼</h1>
+    </header>
+    <div class="container">
+        <p class="instructions">
+            按住 <strong>空白鍵</strong> 輸入短音 (.) 或長音 (-)。
+        </p>
+        <button onclick="clearTable()">清空表格</button>
+        <table>
+            <thead>
+                <tr>
+                    <th>摩斯碼</th>
+                    <th>對應字母</th>
+                </tr>
+            </thead>
+            <tbody id="results">
+                <tr id="placeholder">
+                    <td colspan="2" class="placeholder">點擊按鈕以開始</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <script>
+        const resultsTable = document.getElementById('results');
+        const placeholderRow = document.getElementById('placeholder');
+
+        let keyDownTime = 0; // 記錄鍵盤按下時間
+        let currentMorseCode = ''; // 當前輸入的摩斯碼
+        let activeRow = null; // 當前正在更新的行
+        let decodeTimeout; // 解碼的計時器
+
+        // 摩斯密碼對應表
+        const morseCodeMap = {
+            ".-": "A",
+            "-...": "B",
+            "-.-.": "C",
+            "-..": "D",
+            ".": "E",
+            "..-.": "F",
+            "--.": "G",
+            "....": "H",
+            "..": "I",
+            ".---": "J",
+            "-.-": "K",
+            ".-..": "L",
+            "--": "M",
+            "-.": "N",
+            "---": "O",
+            ".--.": "P",
+            "--.-": "Q",
+            ".-.": "R",
+            "...": "S",
+            "-": "T",
+            "..-": "U",
+            "...-": "V",
+            ".--": "W",
+            "-..-": "X",
+            "-.--": "Y",
+            "--..": "Z",
+            "-----": "0",
+            ".----": "1",
+            "..---": "2",
+            "...--": "3",
+            "....-": "4",
+            ".....": "5",
+            "-....": "6",
+            "--...": "7",
+            "---..": "8",
+            "----.": "9",
+        };
+
+        // 清空表格
+        function clearTable() {
+            resultsTable.innerHTML = `
+                <tr id="placeholder">
+                    <td colspan="2" class="placeholder">點擊按鈕以開始</td>
+                </tr>`;
+            currentMorseCode = '';
+            activeRow = null;
+        }
+
+        // 監聽鍵盤按下事件
+        document.addEventListener('keydown', function(event) {
+            if (event.code === 'Space') { // 空白鍵
+                if (keyDownTime === 0) { // 避免重複觸發
+                    keyDownTime = Date.now(); // 記錄按下的時間
+                }
+                event.preventDefault(); // 防止頁面捲動
+            }
+        });
+
+        // 監聽鍵盤放開事件
+        document.addEventListener('keyup', function(event) {
+            if (event.code === 'Space') { // 空白鍵
+                const keyUpTime = Date.now(); // 記錄放開的時間
+                const duration = keyUpTime - keyDownTime; // 計算按住的時間
+
+                if (duration < 200) {
+                    currentMorseCode += '.'; // 短信號
+                } else {
+                    currentMorseCode += '-'; // 長信號
+                }
+
+                // 即時顯示當前輸入的摩斯碼
+                showCurrentInput(currentMorseCode);
+                keyDownTime = 0; // 重置時間
+                event.preventDefault(); // 防止頁面捲動
+            }
+
+            // 當用戶停止輸入後，1 秒內自動解碼
+            clearTimeout(decodeTimeout);
+            decodeTimeout = setTimeout(decodeMorse, 1000);
+        });
+
+        // 解碼摩斯信號
+        function decodeMorse() {
+            if (!currentMorseCode) return;
+
+            const decodedChar = morseCodeMap[currentMorseCode] || 'invalid code'; // 解碼摩斯碼為字符
+            updateTable(currentMorseCode, decodedChar); // 更新表格
+            currentMorseCode = ''; // 重置當前摩斯碼
+        }
+
+        // 即時顯示當前輸入的摩斯碼
+        function showCurrentInput(code) {
+            // 移除 "點擊按鈕以開始" 行
+            const placeholder = document.getElementById('placeholder');
+            if (placeholder) {
+                placeholder.remove();
+            }
+
+            // 如果沒有活動行，新增一行
+            if (!activeRow) {
+                activeRow = document.createElement('tr');
+                const codeCell = document.createElement('td');
+                codeCell.className = 'code';
+                const charCell = document.createElement('td');
+
+                activeRow.appendChild(codeCell);
+                activeRow.appendChild(charCell);
+                resultsTable.appendChild(activeRow);
+            }
+
+            // 更新當前行的摩斯碼欄位
+            activeRow.querySelector('.code').textContent = code;
+            activeRow.querySelector('td:last-child').textContent = 'loading...'; // 解碼進行中
+        }
+
+        // 更新表格內容（完成解碼）
+        function updateTable(code, char) {
+            if (activeRow) {
+                activeRow.querySelector('.code').textContent = code;
+                activeRow.querySelector('td:last-child').textContent = char; // 解碼完成
+                activeRow = null; // 重置活動行
+            }
+        }
+    </script>
+</body>
+</html>
