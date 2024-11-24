@@ -1,5 +1,6 @@
 import socket
 import time
+import requests
 
 # 設定伺服器參數
 HOST = '0.0.0.0'
@@ -21,12 +22,16 @@ def parse_morse_code(morse_buffer):
     """解析摩斯密碼"""
     morse_str = ''.join(morse_buffer)
     morse_dict = {
-        "-.-.": 'C',
-        ".": 'E',
-        "..": 'I',
-        "-.--": 'Y'
+        ".-": "A", "-...": "B", "-.-.": "C", "-..": "D", ".": "E",
+        "..-.": "F", "--.": "G", "....": "H", "..": "I", ".---": "J",
+        "-.-": "K", ".-..": "L", "--": "M", "-.": "N", "---": "O",
+        ".--.": "P", "--.-": "Q", ".-.": "R", "...": "S", "-": "T",
+        "..-": "U", "...-": "V", ".--": "W", "-..-": "X", "-.--": "Y",
+        "--..": "Z",
+        "-----": "0", ".----": "1", "..---": "2", "...--": "3", "....-": "4",
+        ".....": "5", "-....": "6", "--...": "7", "---..": "8", "----.": "9"
     }
-    return morse_dict.get(morse_str, None)
+    return morse_dict.get(morse_str, 'Invalid Morse code sequence.')
 
 def handle_button_event(state):
     """處理按鈕事件"""
@@ -43,23 +48,30 @@ def handle_button_event(state):
         duration = (RELEASE_TIME - PRESS_TIME) * 1000  # 轉換為毫秒
         if duration < 200:
             MORSE_BUFFER.append('.')
-            print('.', end='', flush=True)  # 短按 (dot)
         else:
             MORSE_BUFFER.append('-')
-            print('-', end='', flush=True)  # 長按 (dash)
+            
+        if len(MORSE_BUFFER) < 5:
+            payload = {'morse_code': ''.join(MORSE_BUFFER), 'morse_decode': 'Loading...', 'create_new_row': len(MORSE_BUFFER) == 1}
+            response = requests.post('http://localhost:5000/morse', json=payload)
+            response.raise_for_status()
+        else:
+            check_morse_idle(True)
 
-def check_morse_idle():
+def check_morse_idle(force=False):
     """檢查是否有長時間無輸入並處理摩斯密碼"""
     global RELEASE_TIME, BUTTON_PRESSED, MORSE_BUFFER
 
-    if RELEASE_TIME:
+    if force or RELEASE_TIME:
         idle_duration = (time.time() - RELEASE_TIME) * 1000
-        if not BUTTON_PRESSED and idle_duration > 500 and MORSE_BUFFER:
+        if force or (not BUTTON_PRESSED and idle_duration > 500 and MORSE_BUFFER):
             result = parse_morse_code(MORSE_BUFFER)
-            if result:
-                print(f" -> {result}")
-            else:
-                print("\nInvalid Morse code sequence.")
+            payload = {'morse_code': ''.join(MORSE_BUFFER), 'morse_decode': result, 'create_new_row': False}
+            try:
+                response = requests.post('http://localhost:5000/morse', json=payload)
+                response.raise_for_status()
+            except requests.exceptions.RequestException as e:
+                print(f"Failed to send POST request: {e}")
             clear_morse()
 
 
@@ -71,29 +83,40 @@ def start_server():
         server_socket.listen(1)
         print(f"Server listening on {HOST}:{PORT}...")
 
-        conn, addr = server_socket.accept()
-        conn.setblocking(False)  # 設定為非阻塞模式
-        print(f"Connection established with {addr}.")
+        while True:  # 主循環，允許伺服器在客戶端斷線後重新等待
+            print("Waiting for a new connection...")
+            conn, addr = server_socket.accept()
+            conn.setblocking(False)  # 設定為非阻塞模式
+            print(f"Connection established with {addr}.")
 
-        while True:
             try:
-                data = conn.recv(2)
-                if not data:  # 檢查連接是否已關閉
-                    print("Connection closed by client.")
-                    break
+                while True:  # 客戶端連接處理循環
+                    try:
+                        data = conn.recv(2)
+                        if not data:  # 檢查連接是否已關閉
+                            print("Connection closed by client.")
+                            break
 
-                state = data.decode().strip().rstrip('\x00')  # 去除尾部多餘字元
-                if state in {'0', '1'}:
-                    handle_button_event(state)  # 處理按鈕事件
-                else:
-                    print(f"Unexpected data received: {state}")
-            except BlockingIOError:
-                # 如果沒有資料可讀，這裡不阻塞，繼續執行其他操作
-                check_morse_idle()  # 檢查摩斯密碼的閒置時間處理
-                time.sleep(0.1)  # 避免無限快速循環浪費CPU
-            except Exception as e:
-                print(f"An error occurred: {e}")
+                        state = data.decode().strip().rstrip('\x00')  # 去除尾部多餘字元
+                        if state in {'0', '1'}:
+                            handle_button_event(state)  # 處理按鈕事件
+                        else:
+                            print(f"Unexpected data received: {state}")
+                    except BlockingIOError:
+                        # 如果沒有資料可讀，這裡不阻塞，繼續執行其他操作
+                        check_morse_idle()  # 檢查摩斯密碼的閒置時間處理
+                        time.sleep(0.1)  # 避免無限快速循環浪費CPU
+                    except Exception as e:
+                        print(f"An error occurred while handling client: {e}")
+                        break
+            except KeyboardInterrupt:
+                print("\nServer shutting down.")
                 break
+            except Exception as e:
+                print(f"An error occurred in the connection loop: {e}")
+            finally:
+                conn.close()  # 確保連接被正確關閉
+
 
 def main():
     try:

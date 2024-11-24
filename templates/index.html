@@ -77,7 +77,7 @@
     </header>
     <div class="container">
         <p class="instructions">
-            按住 <strong>空白鍵</strong> 輸入短音 (.) 或長音 (-)。
+            按下 <strong>按鈕</strong> 輸入短音 (.) 或長音 (-)。
         </p>
         <button onclick="clearTable()">清空表格</button>
         <table>
@@ -89,111 +89,37 @@
             </thead>
             <tbody id="results">
                 <tr id="placeholder">
-                    <td colspan="2" class="placeholder">點擊按鈕以開始</td>
+                    <td colspan="2" class="placeholder">按下按鈕以開始</td>
                 </tr>
             </tbody>
         </table>
     </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
     <script>
+        const socket = io.connect('http://' + document.domain + ':' + location.port);
         const resultsTable = document.getElementById('results');
         const placeholderRow = document.getElementById('placeholder');
 
         let keyDownTime = 0; // 記錄鍵盤按下時間
         let currentMorseCode = ''; // 當前輸入的摩斯碼
         let activeRow = null; // 當前正在更新的行
-        let decodeTimeout; // 解碼的計時器
-
-        // 摩斯密碼對應表
-        const morseCodeMap = {
-            ".-": "A",
-            "-...": "B",
-            "-.-.": "C",
-            "-..": "D",
-            ".": "E",
-            "..-.": "F",
-            "--.": "G",
-            "....": "H",
-            "..": "I",
-            ".---": "J",
-            "-.-": "K",
-            ".-..": "L",
-            "--": "M",
-            "-.": "N",
-            "---": "O",
-            ".--.": "P",
-            "--.-": "Q",
-            ".-.": "R",
-            "...": "S",
-            "-": "T",
-            "..-": "U",
-            "...-": "V",
-            ".--": "W",
-            "-..-": "X",
-            "-.--": "Y",
-            "--..": "Z",
-            "-----": "0",
-            ".----": "1",
-            "..---": "2",
-            "...--": "3",
-            "....-": "4",
-            ".....": "5",
-            "-....": "6",
-            "--...": "7",
-            "---..": "8",
-            "----.": "9",
-        };
+        let inputTimeout; // 用於偵測輸入結束
 
         // 清空表格
         function clearTable() {
             resultsTable.innerHTML = `
                 <tr id="placeholder">
-                    <td colspan="2" class="placeholder">點擊按鈕以開始</td>
+                    <td colspan="2" class="placeholder">按下按鈕以開始</td>
                 </tr>`;
             currentMorseCode = '';
             activeRow = null;
         }
 
-        // 監聽鍵盤按下事件
-        document.addEventListener('keydown', function(event) {
-            if (event.code === 'Space') { // 空白鍵
-                if (keyDownTime === 0) { // 避免重複觸發
-                    keyDownTime = Date.now(); // 記錄按下的時間
-                }
-                event.preventDefault(); // 防止頁面捲動
-            }
+        // 接收後端的解碼結果
+        socket.on('decoded_char', function(data) {
+            console.log(`${data.morse_code}, ${data.morse_decode}, ${data.create_new_row}`)
+            updateTable(data.morse_code, data.morse_decode, data.create_new_row);
         });
-
-        // 監聽鍵盤放開事件
-        document.addEventListener('keyup', function(event) {
-            if (event.code === 'Space') { // 空白鍵
-                const keyUpTime = Date.now(); // 記錄放開的時間
-                const duration = keyUpTime - keyDownTime; // 計算按住的時間
-
-                if (duration < 200) {
-                    currentMorseCode += '.'; // 短信號
-                } else {
-                    currentMorseCode += '-'; // 長信號
-                }
-
-                // 即時顯示當前輸入的摩斯碼
-                showCurrentInput(currentMorseCode);
-                keyDownTime = 0; // 重置時間
-                event.preventDefault(); // 防止頁面捲動
-            }
-
-            // 當用戶停止輸入後，1 秒內自動解碼
-            clearTimeout(decodeTimeout);
-            decodeTimeout = setTimeout(decodeMorse, 1000);
-        });
-
-        // 解碼摩斯信號
-        function decodeMorse() {
-            if (!currentMorseCode) return;
-
-            const decodedChar = morseCodeMap[currentMorseCode] || 'invalid code'; // 解碼摩斯碼為字符
-            updateTable(currentMorseCode, decodedChar); // 更新表格
-            currentMorseCode = ''; // 重置當前摩斯碼
-        }
 
         // 即時顯示當前輸入的摩斯碼
         function showCurrentInput(code) {
@@ -221,11 +147,27 @@
         }
 
         // 更新表格內容（完成解碼）
-        function updateTable(code, char) {
-            if (activeRow) {
+        function updateTable(code, decode, create_new_row) {
+            if (create_new_row) {
+                const placeholder = document.getElementById('placeholder');
+                if (placeholder) {
+                    placeholder.remove();
+                }
+
+                activeRow = document.createElement('tr');
+                const codeCell = document.createElement('td');
+                codeCell.className = 'code';
+                const charCell = document.createElement('td');
+
+                codeCell.textContent = code;
+                charCell.textContent = decode;
+
+                activeRow.appendChild(codeCell);
+                activeRow.appendChild(charCell);
+                resultsTable.appendChild(activeRow);
+            } else {
                 activeRow.querySelector('.code').textContent = code;
-                activeRow.querySelector('td:last-child').textContent = char; // 解碼完成
-                activeRow = null; // 重置活動行
+                activeRow.querySelector('td:last-child').textContent = decode; // 解碼完成
             }
         }
     </script>
