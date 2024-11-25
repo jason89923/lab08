@@ -58,9 +58,13 @@ def handle_button_event(state):
             MORSE_BUFFER.append('-')
             
         if len(MORSE_BUFFER) < 5:
-            payload = {'morse_code': ''.join(MORSE_BUFFER), 'morse_decode': 'Loading...', 'create_new_row': len(MORSE_BUFFER) == 1}
-            response = requests.post('http://localhost:5000/morse', json=payload)
-            response.raise_for_status()
+            result = parse_morse_code(MORSE_BUFFER)
+            if result == 'Invalid Morse code sequence.':
+                check_morse_idle(True)
+            else:
+                payload = {'morse_code': ''.join(MORSE_BUFFER), 'morse_decode': 'Loading...', 'create_new_row': len(MORSE_BUFFER) == 1}
+                response = requests.post('http://localhost:5000/morse', json=payload)
+                response.raise_for_status()
         else:
             check_morse_idle(True)
 
