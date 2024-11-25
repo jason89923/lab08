@@ -13,6 +13,17 @@ RELEASE_TIME = None
 MORSE_BUFFER = []
 MAX_MORSE_LENGTH = 6
 
+morse_dict = {
+    ".-": "A", "-...": "B", "-.-.": "C", "-..": "D", ".": "E",
+    "..-.": "F", "--.": "G", "....": "H", "..": "I", ".---": "J",
+    "-.-": "K", ".-..": "L", "--": "M", "-.": "N", "---": "O",
+    ".--.": "P", "--.-": "Q", ".-.": "R", "...": "S", "-": "T",
+    "..-": "U", "...-": "V", ".--": "W", "-..-": "X", "-.--": "Y",
+    "--..": "Z",
+    "-----": "0", ".----": "1", "..---": "2", "...--": "3", "....-": "4",
+    ".....": "5", "-....": "6", "--...": "7", "---..": "8", "----.": "9"
+}
+
 def clear_morse():
     """清空摩斯密碼緩衝區"""
     global MORSE_BUFFER
@@ -21,16 +32,11 @@ def clear_morse():
 def parse_morse_code(morse_buffer):
     """解析摩斯密碼"""
     morse_str = ''.join(morse_buffer)
-    morse_dict = {
-        ".-": "A", "-...": "B", "-.-.": "C", "-..": "D", ".": "E",
-        "..-.": "F", "--.": "G", "....": "H", "..": "I", ".---": "J",
-        "-.-": "K", ".-..": "L", "--": "M", "-.": "N", "---": "O",
-        ".--.": "P", "--.-": "Q", ".-.": "R", "...": "S", "-": "T",
-        "..-": "U", "...-": "V", ".--": "W", "-..-": "X", "-.--": "Y",
-        "--..": "Z",
-        "-----": "0", ".----": "1", "..---": "2", "...--": "3", "....-": "4",
-        ".....": "5", "-....": "6", "--...": "7", "---..": "8", "----.": "9"
-    }
+    possible_keys = [key for key in morse_dict.keys() if key.startswith(morse_str)]
+
+    if not possible_keys:
+        return 'Invalid Morse code sequence.'
+    
     return morse_dict.get(morse_str, 'Invalid Morse code sequence.')
 
 def handle_button_event(state):
