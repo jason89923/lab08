@@ -32,12 +32,14 @@ def clear_morse():
 def parse_morse_code(morse_buffer):
     """解析摩斯密碼"""
     morse_str = ''.join(morse_buffer)
-    possible_keys = [key for key in morse_dict.keys() if key.startswith(morse_str)]
-
-    if not possible_keys:
-        return 'Invalid Morse code sequence.'
     
     return morse_dict.get(morse_str, 'Invalid Morse code sequence.')
+
+def is_current_morse_code_possiable(morse_buffer):
+    morse_str = ''.join(morse_buffer)
+    possible_keys = [key for key in morse_dict.keys() if key.startswith(morse_str)]
+
+    return len(possible_keys) == 0
 
 def handle_button_event(state):
     """處理按鈕事件"""
@@ -58,8 +60,7 @@ def handle_button_event(state):
             MORSE_BUFFER.append('-')
             
         if len(MORSE_BUFFER) < 5:
-            result = parse_morse_code(MORSE_BUFFER)
-            if result == 'Invalid Morse code sequence.':
+            if is_current_morse_code_possiable(MORSE_BUFFER) == 'Invalid Morse code sequence.':
                 check_morse_idle(True)
             else:
                 payload = {'morse_code': ''.join(MORSE_BUFFER), 'morse_decode': 'Loading...', 'create_new_row': len(MORSE_BUFFER) == 1}
